@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { getCorrelationContext } from "./logger";
 import { RATE_LIMITS, getLimitForRoute, LimitType } from "./rate-limit-config";
 import { getRateLimitStore } from "./rate-limit-store";
-import { generateRequestId, REQUEST_ID_HEADER } from "@/lib/requestId";
 
 const JWT_SECRET = process.env.JWT_SECRET || "streampay-dev-secret-do-not-use-in-prod";
 
@@ -92,13 +91,12 @@ export async function checkRateLimit(
 }
 
 export function rateLimitResponse(retryAfter: number) {
-  const requestId =
-    getCorrelationContext()?.request_id ?? generateRequestId();
-
+  const requestId = getCorrelationContext()?.request_id ?? `req-${crypto.randomUUID()}`;
   return NextResponse.json(
     {
       error: {
-        // keep existing shape
+        code: "rate_limit_exceeded",
+        message: "Rate limit exceeded. Please try again later.",
         request_id: requestId,
       },
     },
@@ -106,9 +104,8 @@ export function rateLimitResponse(retryAfter: number) {
       status: 429,
       headers: {
         "Retry-After": String(retryAfter),
-        [REQUEST_ID_HEADER]: requestId,
       },
-    },
+    }
   );
 }
 
