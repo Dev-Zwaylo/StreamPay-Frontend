@@ -129,7 +129,7 @@ export interface User {
   email: string | null;
   display_name: string;
   avatar_url: string | null;
-  created_at: string;
+  created_at: string | null;
   last_seen: string | null;
 }
 

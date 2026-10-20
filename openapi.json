@@ -1150,12 +1150,69 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/WalletChallenge"
+                },
+                "examples": {
+                  "walletChallenge": {
+                    "summary": "Successful challenge issuance",
+                    "value": {
+                      "challenge": "streampay_auth_1716000000000_x7k2m",
+                      "expires_at": "2024-01-15T10:05:00.000Z"
+                    }
+                  }
                 }
               }
             }
           },
           "400": {
-            "$ref": "#/components/responses/400"
+            "description": "Bad request \u2014 missing or invalid address.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                },
+                "examples": {
+                  "missingAddress": {
+                    "summary": "Address query parameter missing",
+                    "value": {
+                      "error": {
+                        "code": "BAD_REQUEST",
+                        "message": "address query parameter is required.",
+                        "request_id": "req_01HZ9ABCDEF"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable entity \u2014 query parameter failed validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                },
+                "examples": {
+                  "validationError": {
+                    "summary": "Invalid Stellar address",
+                    "value": {
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "One or more fields are invalid.",
+                        "request_id": "req_01HZ9ABCDEF",
+                        "details": [
+                          {
+                            "field": "address",
+                            "code": "INVALID_ADDRESS",
+                            "message": "address must be a valid Stellar public key."
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
           },
           "429": {
             "description": "IP rate limit exceeded for challenge issuance (20 req/min per IP).",
@@ -1183,6 +1240,18 @@
                     "code": "rate_limit_exceeded",
                     "message": "Too many requests. Please try again later.",
                     "request_id": "req_01HZ9ABCDEF"
+                  }
+                },
+                "examples": {
+                  "rateLimited": {
+                    "summary": "Too many challenge requests",
+                    "value": {
+                      "error": {
+                        "code": "rate_limit_exceeded",
+                        "message": "Too many requests. Please try again later.",
+                        "request_id": "req_01HZ9ABCDEF"
+                      }
+                    }
                   }
                 }
               }
@@ -1229,6 +1298,16 @@
                     "example": "dGVzdHNpZ25hdHVyZQ=="
                   }
                 }
+              },
+              "examples": {
+                "verifySignature": {
+                  "summary": "Signed challenge payload",
+                  "value": {
+                    "address": "GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ234567890ABCDEFG",
+                    "challenge": "streampay_auth_1716000000000_x7k2m",
+                    "signature": "dGVzdHNpZ25hdHVyZQ=="
+                  }
+                }
               }
             }
           }
@@ -1240,15 +1319,91 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/WalletToken"
+                },
+                "examples": {
+                  "walletToken": {
+                    "summary": "Successful token issuance",
+                    "value": {
+                      "token": "tok_R0FCQzEyMzQ1Njc4OTA",
+                      "expires_at": "2024-01-16T10:00:00.000Z"
+                    }
+                  }
                 }
               }
             }
           },
           "400": {
-            "$ref": "#/components/responses/400"
+            "description": "Bad request \u2014 invalid request body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                },
+                "examples": {
+                  "invalidBody": {
+                    "summary": "Malformed JSON body",
+                    "value": {
+                      "error": {
+                        "code": "BAD_REQUEST",
+                        "message": "Request body must be valid JSON.",
+                        "request_id": "req_01HZ9ABCDEF"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
-            "$ref": "#/components/responses/401"
+            "description": "Unauthorized \u2014 signature verification failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                },
+                "examples": {
+                  "unauthorized": {
+                    "summary": "Invalid signature",
+                    "value": {
+                      "error": {
+                        "code": "UNAUTHORIZED",
+                        "message": "Signature verification failed.",
+                        "request_id": "req_01HZ9ABCDEF"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable entity \u2014 request body failed schema validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                },
+                "examples": {
+                  "validationError": {
+                    "summary": "Missing required fields",
+                    "value": {
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "One or more fields are invalid.",
+                        "request_id": "req_01HZ9ABCDEF",
+                        "details": [
+                          {
+                            "field": "signature",
+                            "code": "MISSING_FIELD",
+                            "message": "signature is required."
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
           },
           "429": {
             "description": "IP rate limit exceeded for wallet login (5 req/min per IP).",
@@ -1276,6 +1431,18 @@
                     "code": "rate_limit_exceeded",
                     "message": "Too many requests. Please try again later.",
                     "request_id": "req_01HZ9ABCDEF"
+                  }
+                },
+                "examples": {
+                  "rateLimited": {
+                    "summary": "Too many login attempts",
+                    "value": {
+                      "error": {
+                        "code": "rate_limit_exceeded",
+                        "message": "Too many requests. Please try again later.",
+                        "request_id": "req_01HZ9ABCDEF"
+                      }
+                    }
                   }
                 }
               }
