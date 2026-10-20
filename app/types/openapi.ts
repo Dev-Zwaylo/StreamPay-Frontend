@@ -122,6 +122,19 @@ export interface Stream {
    * stream escrow account (GrantFox campaign, issue #pause-entrypoint).
    */
   pausedAt?: string;
+  /**
+   * Tenant identifier that scopes the stream across multi-tenant boundaries.
+   * Defaults to `DEFAULT_STREAM_TENANT_ID` ("default-tenant") when omitted.
+   */
+  tenantId?: string;
+  /**
+   * Legacy alias for `tenantId` used by single-stream tenant lookups.
+   */
+  tenant?: string;
+  /**
+   * Optional owning organisation identifier for org-scoped stream visibility.
+   */
+  orgId?: string;
 }
 
 export interface User {
@@ -129,7 +142,7 @@ export interface User {
   email: string | null;
   display_name: string;
   avatar_url: string | null;
-  created_at: string;
+  created_at: string | null;
   last_seen: string | null;
 }
 

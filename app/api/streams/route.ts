@@ -25,6 +25,12 @@ import { createCacheHeaders, createStrongEtag, isIfNoneMatchMatch } from "@/src/
 import { observeStreamsRequest } from "@/src/metrics/registry";
 import { withRouteTimeout } from "@/src/middleware/timeout";
 import { appendStreamHistoryEvent } from "@/app/lib/stream-history-writer";
+import {
+  redactStreamPii,
+  resolveRequestActor,
+  resolveRequestTenant,
+  visibleTo,
+} from "@/app/lib/stream-visibility";
 
 function errorResponse(code: string, message: string, status: number) {
   return createErrorResponse(code, message, status);
@@ -90,10 +96,20 @@ async function handleStreamsGet(request: Request) {
     const streamStatus = query.status ?? null;
     const limit = query.limit ?? 20;
 
-    const sortedStreams = Array.from(streamRepository.streams.values()).sort((left, right) => {
-      const timeCompare = left.createdAt.localeCompare(right.createdAt);
-      return timeCompare !== 0 ? timeCompare : left.id.localeCompare(right.id);
-    });
+    const tenant = resolveRequestTenant(request);
+    const actor = resolveRequestActor(request);
+    const isVisible = visibleTo(actor, tenant);
+
+    const tenantCandidates = streamRepository.listByTenant
+      ? streamRepository.listByTenant(tenant)
+      : Array.from(streamRepository.streams.values());
+
+    const sortedStreams = tenantCandidates
+      .filter(isVisible)
+      .sort((left, right) => {
+        const timeCompare = left.createdAt.localeCompare(right.createdAt);
+        return timeCompare !== 0 ? timeCompare : left.id.localeCompare(right.id);
+      });
 
     let streams = streamStatus
       ? sortedStreams.filter((stream) => stream.status === streamStatus)
@@ -105,7 +121,7 @@ async function handleStreamsGet(request: Request) {
         keyset = decodeStreamCursor(cursor, {
           resolveLegacyId: (legacyId) => {
             const legacy = streamRepository.streams.get(legacyId);
-            if (!legacy) {
+            if (!legacy || !isVisible(legacy)) {
               return null;
             }
             logger.warn("Deprecated plain-id pagination cursor used", {
@@ -122,20 +138,33 @@ async function handleStreamsGet(request: Request) {
           422,
         );
       }
+
+      const cursorTarget = streamRepository.streams.get(keyset.id);
+      if (cursorTarget && !isVisible(cursorTarget)) {
+        status = 422;
+        return errorResponse(
+          "INVALID_CURSOR",
+          "Cursor is malformed or refers to a stream that no longer exists.",
+          422,
+        );
+      }
+
       streams = streams.filter((stream) => isAfterCursor(stream, keyset));
     }
 
-    const paginatedStreams = streams.slice(0, limit);
+    const total = streams.length;
+    const rawPage = streams.slice(0, limit);
+    const paginatedStreams = actor ? rawPage : rawPage.map(redactStreamPii);
     const hasNext = streams.length > limit;
     const nextCursor =
-      hasNext && paginatedStreams.length > 0
-        ? encodeStreamCursor(paginatedStreams[paginatedStreams.length - 1])
+      hasNext && rawPage.length > 0
+        ? encodeStreamCursor(rawPage[rawPage.length - 1])
         : null;
 
     const payload = {
       data: paginatedStreams,
       links: { self: `/api/v1/streams?limit=${limit}` },
-      meta: { hasNext, nextCursor, total: streams.length },
+      meta: { hasNext, nextCursor, total },
     };
     const etag = createStrongEtag(payload);
 
@@ -149,7 +178,7 @@ async function handleStreamsGet(request: Request) {
 
     logger.info("Streams listed successfully", {
       count: paginatedStreams.length,
-      total: streamRepository.streams.size,
+      total,
     });
 
     const response = NextResponse.json(payload);
@@ -260,6 +289,11 @@ async function handleStreamsPost(request: Request) {
 
     const id = `stream-${crypto.randomUUID().slice(0, 8)}`;
     const now = new Date().toISOString();
+    const explicitTenant =
+      getHeader(request, "x-tenant-id")?.trim() ||
+      getHeader(request, "x-streampay-tenant-id")?.trim() ||
+      undefined;
+    const actorWallet = getHeader(request, "Actor-Wallet-Address")?.trim() || undefined;
     const newStream: Stream = {
       createdAt: now,
       id,
@@ -270,6 +304,8 @@ async function handleStreamsPost(request: Request) {
       status: "draft",
       updatedAt: now,
       token: normalisedToken,
+      ...(explicitTenant ? { tenantId: explicitTenant, tenant: explicitTenant } : {}),
+      ...(actorWallet ? { senderAddress: actorWallet } : {}),
     };
 
     streamRepository.streams.set(id, newStream);
