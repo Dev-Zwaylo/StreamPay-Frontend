@@ -1,12 +1,12 @@
-/**
+/*
  * OpenAPI examples coverage for GET/POST /api/auth/wallet (issue #1105).
  */
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
-function loadOpenApiSpec(): any {
-  const raw = readFileSync(join(__dirname, '..', 'openapi.json'), 'utf8');
-  return JSON.parse(raw);
+function loadOpenApiYaml(): any {
+  const raw = readFileSync(join(__dirname, '.', 'src', 'openapi.yaml'), 'utf8');
+  return yaml.load(raw);
 }
 
 describe('OpenAPI examples /api/auth/wallet', () => {
