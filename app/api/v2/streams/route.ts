@@ -33,12 +33,7 @@ import {
 } from "@/app/lib/stream-cursor";
 import type { Stream } from "@/app/types/openapi";
 import { withRouteTimeout } from "@/src/middleware/timeout";
-import { createCacheHeaders, createStrongEtag, isIfNoneMatchMatch } from "@/src/middleware/etag";
-import {
-  resolveRequestActor,
-  resolveRequestTenant,
-  visibleTo,
-} from "@/app/lib/stream-visibility";
+import { tryAuthenticateRequest } from "@/app/lib/auth";
 
 
 function errorResponse(code: string, message: string, status: number) {
@@ -225,6 +220,10 @@ async function handleV2StreamsPost(request: Request) {
   }
 
   // ── 4. Persist and respond ────────────────────────────────────────────────
+  const authenticatedActor = tryAuthenticateRequest(request);
+  const senderAddress = authenticatedActor?.walletAddress ?? null;
+  const ownership: "individual" | "unclaimed" = authenticatedActor ? "individual" : "unclaimed";
+
   const id = `stream-${crypto.randomUUID().slice(0, 8)}`;
   const now = new Date().toISOString();
   const explicitTenant =
@@ -242,8 +241,8 @@ async function handleV2StreamsPost(request: Request) {
     createdAt: now,
     updatedAt: now,
     token: "XLM",
-    ...(explicitTenant ? { tenantId: explicitTenant, tenant: explicitTenant } : {}),
-    ...(actor?.walletAddress ? { senderAddress: actor.walletAddress } : {}),
+    senderAddress,
+    ownership,
   };
 
   db.streams.set(id, newStream);

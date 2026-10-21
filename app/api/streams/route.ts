@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { tryAuthenticateRequest } from "@/app/lib/auth";
 import {
   checkIdempotency,
   computeFingerprint,
@@ -287,6 +288,10 @@ async function handleStreamsPost(request: Request) {
       return createErrorResponse("TOKEN_NOT_ALLOWED", allowlistResult.reason, 422);
     }
 
+    const authenticatedActor = tryAuthenticateRequest(request);
+    const senderAddress = authenticatedActor?.walletAddress ?? null;
+    const ownership: "individual" | "unclaimed" = authenticatedActor ? "individual" : "unclaimed";
+
     const id = `stream-${crypto.randomUUID().slice(0, 8)}`;
     const now = new Date().toISOString();
     const explicitTenant =
@@ -304,8 +309,8 @@ async function handleStreamsPost(request: Request) {
       status: "draft",
       updatedAt: now,
       token: normalisedToken,
-      ...(explicitTenant ? { tenantId: explicitTenant, tenant: explicitTenant } : {}),
-      ...(actorWallet ? { senderAddress: actorWallet } : {}),
+      senderAddress,
+      ownership,
     };
 
     streamRepository.streams.set(id, newStream);
