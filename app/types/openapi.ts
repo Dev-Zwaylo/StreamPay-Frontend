@@ -92,6 +92,9 @@ export interface Stream {
    * Required for the cancel-stream refund preview split.
    */
   totalAmount?: string;
+  /** ISO-8601 bounds of linear vesting, when a vesting window is configured. */
+  startTime?: string;
+  endTime?: string;
   /**
    * Present only on cancelled streams. Contains the full refund-split
    * breakdown so callers can verify the escrow-conservation invariant.
@@ -132,19 +135,8 @@ export interface Stream {
    * stream escrow account (GrantFox campaign, issue #pause-entrypoint).
    */
   pausedAt?: string;
-  /**
-   * Tenant identifier that scopes the stream across multi-tenant boundaries.
-   * Defaults to `DEFAULT_STREAM_TENANT_ID` ("default-tenant") when omitted.
-   */
-  tenantId?: string;
-  /**
-   * Legacy alias for `tenantId` used by single-stream tenant lookups.
-   */
-  tenant?: string;
-  /**
-   * Optional owning organisation identifier for org-scoped stream visibility.
-   */
-  orgId?: string;
+  /** Completed pause time in milliseconds, excluded from linear vesting. */
+  pausedDurationMs?: number;
 }
 
 export interface User {
