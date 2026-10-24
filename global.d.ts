@@ -248,6 +248,13 @@ declare namespace NodeJS {
     GITHUB_ACTIONS?: string;
     /** Enables test-only code paths. Never set in production. */
     TEST_MODE?: string;
+
+    // -------------------------------------------------------------------------
+    // 19. Audit Log Security
+    // -------------------------------------------------------------------------
+
+    /** HMAC-SHA256 key for audit log entry hashes. Required in production. */
+    AUDIT_CHAIN_KEY?: string;
   }
 }
 
