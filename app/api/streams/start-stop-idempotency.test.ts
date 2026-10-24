@@ -29,7 +29,7 @@ beforeEach(() => {
   db.streams.set("stream-indiv-active", { ...base, id: "stream-indiv-active", status: "active" });
 });
 
-describe("POST /api/streams/[id]/start � idempotency", () => {
+describe("POST /api/streams/[id]/start — idempotency", () => {
   const STREAM = "stream-kemi";
 
   it("no key: returns 200 and sets stream to active", async () => {
@@ -85,7 +85,7 @@ describe("POST /api/streams/[id]/start � idempotency", () => {
   });
 });
 
-describe("POST /api/streams/[id]/stop � idempotency", () => {
+describe("POST /api/streams/[id]/stop — idempotency", () => {
   const STREAM = "stream-indiv-active";
 
   it("no key: returns 200 and sets stream to ended", async () => {
@@ -150,6 +150,10 @@ describe("POST /api/streams/[id]/stop � idempotency", () => {
 
   it("token not stored on wrong state (409)", async () => {
     const key = "stop-bad-state-key";
+    // `stop` on an ended stream is an idempotent no-op (#1776); a withdrawn
+    // stream has no `stop` transition and is rejected.
+    const yusuf = db.streams.get("stream-yusuf")!;
+    db.streams.set("stream-yusuf", { ...yusuf, status: "withdrawn" });
     const res = await stopPOST(stopReq("stream-yusuf", key), ctx("stream-yusuf"));
     expect(res.status).toBe(409);
     expect(db.idempotency.has(`streams.stop.stream-yusuf:${key}`)).toBe(false);
@@ -168,23 +172,27 @@ describe("POST /api/streams/[id]/stop � idempotency", () => {
     expect(db.streams.get(STREAM)?.status).toBe("ended");
   });
 
-  it("parallel different-keys: exactly 1 success, 9 conflicts", async () => {
+  it("parallel different-keys: one transition, the rest are idempotent no-ops", async () => {
     const results = await Promise.all(
       Array.from({ length: 10 }).map((_, i) =>
         stopPOST(stopReq(STREAM, `parallel-stop-key-${i}`), ctx(STREAM))
       )
     );
-    expect(results.filter(r => r.status === 200)).toHaveLength(1);
-    expect(results.filter(r => r.status === 409)).toHaveLength(9);
+    // Stopping an already-ended stream returns it unchanged (#1776), so every
+    // request succeeds but only the first one transitions and audits.
+    expect(results.every(r => r.status === 200)).toBe(true);
+    expect(db.streams.get(STREAM)?.status).toBe("ended");
     const entries = auditLogStore.list({ targetId: STREAM }).filter(e => e.action === "stream.stop.override");
     expect(entries).toHaveLength(1);
   });
 
-  it("parallel no-key: exactly 1 success", async () => {
+  it("parallel no-key: exactly one transition", async () => {
     const results = await Promise.all(
       Array.from({ length: 10 }).map(() => stopPOST(stopReq(STREAM), ctx(STREAM)))
     );
-    expect(results.filter(r => r.status === 200)).toHaveLength(1);
+    expect(results.every(r => r.status === 200)).toBe(true);
+    const entries = auditLogStore.list({ targetId: STREAM }).filter(e => e.action === "stream.stop.override");
+    expect(entries).toHaveLength(1);
     expect(db.streams.get(STREAM)?.status).toBe("ended");
   });
 

@@ -9,7 +9,7 @@ import type {
   StreamRepository,
 } from "@/app/lib/db";
 import type { ActivityEvent, ExportJob, Stream, User } from "@/app/types/openapi";
-import { createActivityTimelineStore, type ActivityTimelineStore, activityEventToTimelineEntry } from "@/app/lib/repositories/activity-timeline";
+import { createActivityTimelineStore, activityEventToTimelineEntry } from "@/app/lib/repositories/activity-timeline";
 import { createStreamHistoryStore } from "@/app/lib/repositories/stream-history";
 
 // Keep seeded demo timestamps recent (no-op under Jest).
@@ -263,7 +263,7 @@ class InMemoryAppendOnlyStore<T> implements AppendOnlyStore<T> {
   }
 }
 
-import { DEFAULT_STREAM_TENANT_ID } from "@/app/lib/stream-view";
+import { DEFAULT_STREAM_TENANT_ID } from "@/app/lib/stream-tenant";
 import { resolveStreamTenant, visibleTo } from "@/app/lib/stream-visibility";
 
 export { visibleTo, resolveStreamTenant };
@@ -361,6 +361,16 @@ export class IndexedStreamStore implements KeyValueStore<string, Stream> {
     }
     this.backing.set(id, value);
     this.indexStream(id, value);
+  }
+
+  /** Create-only write: returns `false` (and leaves state untouched) if `id` exists. */
+  insert(id: string, value: Stream): boolean {
+    if (this.backing.has(id)) {
+      return false;
+    }
+    this.backing.set(id, value);
+    this.indexStream(id, value);
+    return true;
   }
 
   values(): IterableIterator<Stream> {
